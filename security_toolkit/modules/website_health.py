@@ -57,20 +57,25 @@ def _ensure_scheme(url: str) -> str:
     return url
 
 
-def _validate_url(url: str) -> Optional[str]:
+def _validate_url(url: str) -> None:
     """Validate URL scheme and ensure the target is not a private network address.
 
-    Returns an error string if invalid, or None if the URL is acceptable.
+    Raises:
+        ValueError: if the URL scheme is not http/https or the host resolves to a
+                    private or loopback address.
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        return f"Unsupported scheme '{parsed.scheme}'; only http and https are allowed"
+        raise ValueError(
+            f"Unsupported scheme '{parsed.scheme}'; only http and https are allowed"
+        )
     hostname = parsed.hostname or ""
     if not hostname:
-        return "URL contains no hostname"
+        raise ValueError("URL contains no hostname")
     if _is_private_address(hostname):
-        return f"Target hostname '{hostname}' resolves to a private or loopback address"
-    return None
+        raise ValueError(
+            f"Target hostname '{hostname}' resolves to a private or loopback address"
+        )
 
 
 def _check_http(url: str, timeout: int) -> Dict[str, Any]:
@@ -83,11 +88,8 @@ def _check_http(url: str, timeout: int) -> Dict[str, Any]:
         "page_load_ms": None,
         "error": None,
     }
-    url_error = _validate_url(url)
-    if url_error:
-        result["error"] = url_error
-        return result
     try:
+        _validate_url(url)
         start = time.time()
         resp = requests.get(
             url,
@@ -104,6 +106,8 @@ def _check_http(url: str, timeout: int) -> Dict[str, Any]:
         for r in resp.history:
             result["redirect_chain"].append({"url": r.url, "status_code": r.status_code})
 
+    except ValueError as exc:
+        result["error"] = str(exc)
     except SSLError as exc:
         result["error"] = f"SSL error: {exc}"
     except ConnectionError as exc:
@@ -228,12 +232,13 @@ def check_website(url: str, config: Optional[dict] = None) -> Dict[str, Any]:
     parsed = urlparse(url)
     hostname = parsed.hostname or ""
 
-    url_error = _validate_url(url)
-    if url_error:
+    try:
+        _validate_url(url)
+    except ValueError as exc:
         return {
             "input": url,
             "hostname": hostname,
-            "error": url_error,
+            "error": str(exc),
             "http": None,
             "ssl": None,
             "dns": None,

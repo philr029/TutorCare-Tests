@@ -51,6 +51,7 @@ class TestNumverify:
         mock_response.raise_for_status.return_value = None
         with patch("requests.get", return_value=mock_response):
             result = _check_numverify("+14155552671", "fake_key", 5)
+        mock_response.raise_for_status.assert_called_once()
         assert result["carrier"] == "AT&T"
         assert result["line_type"] == "mobile"
 
@@ -71,6 +72,7 @@ class TestTwilio:
         mock_response.raise_for_status.return_value = None
         with patch("requests.get", return_value=mock_response):
             result = _check_twilio("+14155552671", "ACfake", "fake_token", 5)
+        mock_response.raise_for_status.assert_called_once()
         assert result["carrier"] == "Verizon"
         assert result["line_type"] == "mobile"
 
