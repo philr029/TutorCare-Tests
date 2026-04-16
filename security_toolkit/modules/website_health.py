@@ -1,6 +1,7 @@
 """Website health and diagnostics module."""
 from __future__ import annotations
 
+import ipaddress
 import socket
 import ssl
 import time
@@ -18,10 +19,58 @@ from ..utils.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _is_private_address(hostname: str) -> bool:
+    """Return True if the hostname resolves to a private/loopback address."""
+    try:
+        addr = ipaddress.ip_address(hostname)
+        return any(addr in net for net in _PRIVATE_RANGES)
+    except ValueError:
+        pass
+    try:
+        resolved = socket.getaddrinfo(hostname, None)
+        for item in resolved:
+            try:
+                addr = ipaddress.ip_address(item[4][0])
+                if any(addr in net for net in _PRIVATE_RANGES):
+                    return True
+            except ValueError:
+                continue
+    except OSError:
+        pass
+    return False
+
+
 def _ensure_scheme(url: str) -> str:
     if not url.startswith(("http://", "https://")):
         return "https://" + url
     return url
+
+
+def _validate_url(url: str) -> Optional[str]:
+    """Validate URL scheme and ensure the target is not a private network address.
+
+    Returns an error string if invalid, or None if the URL is acceptable.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"Unsupported scheme '{parsed.scheme}'; only http and https are allowed"
+    hostname = parsed.hostname or ""
+    if not hostname:
+        return "URL contains no hostname"
+    if _is_private_address(hostname):
+        return f"Target hostname '{hostname}' resolves to a private or loopback address"
+    return None
 
 
 def _check_http(url: str, timeout: int) -> Dict[str, Any]:
@@ -75,6 +124,7 @@ def _check_ssl(hostname: str, port: int = 443, timeout: int = 10) -> Dict[str, A
     }
     try:
         ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         with ctx.wrap_socket(
             socket.create_connection((hostname, port), timeout=timeout),
             server_hostname=hostname,
@@ -174,6 +224,18 @@ def check_website(url: str, config: Optional[dict] = None) -> Dict[str, Any]:
     parsed = urlparse(url)
     hostname = parsed.hostname or ""
 
+    url_error = _validate_url(url)
+    if url_error:
+        return {
+            "input": url,
+            "hostname": hostname,
+            "error": url_error,
+            "http": None,
+            "ssl": None,
+            "dns": None,
+            "checked_at": datetime.now(tz=timezone.utc).isoformat(),
+        }
+
     logger.info("Running website health check for %s", hostname)
 
     http_result = _check_http(url, timeout)
@@ -186,5 +248,5 @@ def check_website(url: str, config: Optional[dict] = None) -> Dict[str, Any]:
         "http": http_result,
         "ssl": ssl_result,
         "dns": dns_result,
-        "checked_at": datetime.utcnow().isoformat() + "Z",
+        "checked_at": datetime.now(tz=timezone.utc).isoformat(),
     }

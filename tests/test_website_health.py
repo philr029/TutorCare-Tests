@@ -180,3 +180,8 @@ class TestCheckWebsite:
         assert result["http"]["status_code"] == 200
         assert result["ssl"]["valid"] is True
         assert "checked_at" in result
+
+    def test_check_website_rejects_private_ip(self):
+        result = check_website("http://127.0.0.1/", MOCK_CONFIG)
+        assert result["error"] is not None
+        assert result["http"] is None

@@ -32,7 +32,11 @@ def create_app(config: Optional[dict] = None) -> Flask:
         target = request.args.get("target", "")
         if not target:
             return jsonify({"error": "Missing 'target' parameter"}), 400
-        result = check_reputation(target, app.config["TOOLKIT_CONFIG"])
+        try:
+            result = check_reputation(target, app.config["TOOLKIT_CONFIG"])
+        except Exception:
+            logger.exception("Unhandled error in /api/ip")
+            return jsonify({"error": "Internal server error"}), 500
         return jsonify(result)
 
     @app.route("/api/phone", methods=["GET"])
@@ -41,7 +45,11 @@ def create_app(config: Optional[dict] = None) -> Flask:
         region = request.args.get("region")
         if not number:
             return jsonify({"error": "Missing 'number' parameter"}), 400
-        result = validate_phone(number, region, app.config["TOOLKIT_CONFIG"])
+        try:
+            result = validate_phone(number, region, app.config["TOOLKIT_CONFIG"])
+        except Exception:
+            logger.exception("Unhandled error in /api/phone")
+            return jsonify({"error": "Internal server error"}), 500
         return jsonify(result)
 
     @app.route("/api/website", methods=["GET"])
@@ -49,7 +57,11 @@ def create_app(config: Optional[dict] = None) -> Flask:
         url = request.args.get("url", "")
         if not url:
             return jsonify({"error": "Missing 'url' parameter"}), 400
-        result = check_website(url, app.config["TOOLKIT_CONFIG"])
+        try:
+            result = check_website(url, app.config["TOOLKIT_CONFIG"])
+        except Exception:
+            logger.exception("Unhandled error in /api/website")
+            return jsonify({"error": "Internal server error"}), 500
         return jsonify(result)
 
     return app
