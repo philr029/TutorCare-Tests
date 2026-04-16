@@ -240,26 +240,129 @@ python -m pytest tests/ -v
 ## Project Structure
 
 ```
-security_toolkit/
-├── cli.py                  # Click CLI entry point
+security_toolkit/               # Production package (installable via pip/setup.py)
+├── cli.py                      # Click CLI: ip, ip-bulk, phone, website, serve
 ├── modules/
-│   ├── ip_reputation.py    # IP/domain reputation checks
-│   ├── phone_validation.py # Phone number validation
-│   └── website_health.py   # Website health diagnostics
+│   ├── ip_reputation.py        # IP/domain reputation (DNSBL, AbuseIPDB, VirusTotal)
+│   ├── phone_validation.py     # Phone number validation
+│   └── website_health.py       # Website health diagnostics
 ├── utils/
-│   ├── config_loader.py    # YAML config loader
-│   └── logging_utils.py    # Redacting log formatter
+│   ├── config_loader.py        # YAML config loader
+│   └── logging_utils.py        # Redacting log formatter
 └── web/
-    ├── dashboard.py        # Flask web dashboard
+    ├── dashboard.py            # Flask web dashboard
     └── templates/
-        └── index.html      # Dashboard UI
-tests/                      # pytest unit tests
+        └── index.html          # Dashboard UI
+
+src/                            # Modular scaffold (granular per-feature files)
+├── ip_reputation/
+│   ├── check_rbl.py            # DNSBL / RBL lookup
+│   └── check_abuseipdb.py      # AbuseIPDB API check
+├── domain_reputation/
+│   └── check_dnsbl.py          # Domain DNSBL + Spamhaus DBL
+├── phone_validation/
+│   └── validate_number.py      # libphonenumber + Numverify/Twilio enrichment
+├── site_diagnostics/
+│   ├── http_status.py          # HTTP status, headers, redirect chain
+│   ├── ssl_check.py            # SSL/TLS certificate inspection
+│   └── dns_records.py          # DNS records (A, MX, TXT, SPF, DMARC)
+└── utils/
+    ├── http_client.py          # Shared HTTP client with logging
+    ├── logger.py               # Redacting logger wrapper
+    └── config_loader.py        # JSON config loader
+
+cli.py                          # Top-level CLI (check-ip, check-domain,
+                                #   validate-phone, site-health)
 config/
-└── config.yaml             # Configuration file
+├── config.yaml                 # YAML configuration (production)
+└── config.example.json         # JSON configuration template
+dashboard/                      # Optional web dashboard (placeholder)
+docs/                           # Supplementary documentation
+tests/                          # pytest unit tests (103 tests)
 Dockerfile
 requirements.txt
 setup.py
 ```
+
+---
+
+## `src/` Scaffold CLI
+
+A second CLI entry point (`cli.py` at the project root) uses the granular `src/`
+module layout and exposes four commands:
+
+```bash
+# Check IP reputation (DNSBL + AbuseIPDB)
+python cli.py check-ip 8.8.8.8
+python cli.py check-ip 1.2.3.4 --dnsbl zen.spamhaus.org --dnsbl bl.spamcop.net
+
+# Check domain reputation (Spamhaus DBL + IP-based DNSBLs)
+python cli.py check-domain example.com
+
+# Validate a phone number
+python cli.py validate-phone "+14155552671"
+python cli.py validate-phone "02071234567" --region GB
+
+# Full site-health diagnostics (HTTP + SSL + DNS)
+python cli.py site-health https://example.com
+python cli.py --output result.json site-health example.com
+```
+
+**Sample `check-ip` output:**
+```json
+{
+  "ip": "8.8.8.8",
+  "dnsbl_results": [
+    {"ip": "8.8.8.8", "dnsbl": "zen.spamhaus.org", "listed": false, "details": "Not listed"},
+    {"ip": "8.8.8.8", "dnsbl": "multi.surbl.org",  "listed": false, "details": "Not listed"}
+  ],
+  "abuseipdb": null
+}
+```
+
+**Sample `validate-phone` output:**
+```json
+{
+  "input": "+14155552671",
+  "valid": true,
+  "format": {
+    "e164": "+14155552671",
+    "international": "+1 415-555-2671",
+    "national": "(415) 555-2671"
+  },
+  "country": "United States",
+  "region": "US",
+  "line_type": "fixed_line_or_mobile",
+  "timezones": ["America/Los_Angeles"],
+  "sources": [],
+  "error": null
+}
+```
+
+**Sample `site-health` output:**
+```json
+{
+  "hostname": "example.com",
+  "http": {"status_code": 200, "page_load_ms": 342.5, "error": null},
+  "ssl":  {"valid": true, "days_until_expiry": 120, "error": null},
+  "dns":  {"A": ["93.184.216.34"], "SPF": [], "DMARC": "No DMARC record found"},
+  "checked_at": "2024-01-15T10:30:00+00:00"
+}
+```
+
+### API Key Setup
+
+Copy `config/config.example.json` to `config/config.json` and fill in your keys:
+
+| Key | Provider | Free tier |
+|---|---|---|
+| `abuseipdb` | https://www.abuseipdb.com/ | ✅ 1 000 checks/day |
+| `virustotal` | https://www.virustotal.com/ | ✅ 4 req/min |
+| `numverify` | https://numverify.com/ | ✅ 100 req/month |
+| `twilio_sid` + `twilio_token` | https://www.twilio.com/ | ✅ trial credits |
+
+All keys are **optional** – the toolkit performs DNSBL lookups and phone
+parsing entirely without API calls.
 
 ---
 
