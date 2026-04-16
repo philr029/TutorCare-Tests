@@ -42,7 +42,7 @@ def _line_type_name(number_type: int) -> str:
 
 def _check_numverify(phone_e164: str, api_key: str, timeout: int) -> Dict[str, Any]:
     """Query Numverify API for carrier and line-type data."""
-    url = "http://apilayer.net/api/validate"
+    url = "https://apilayer.net/api/validate"
     params = {"access_key": api_key, "number": phone_e164, "format": 1}
     try:
         resp = requests.get(url, params=params, timeout=timeout)

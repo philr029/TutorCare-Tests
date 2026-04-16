@@ -83,6 +83,10 @@ def _check_http(url: str, timeout: int) -> Dict[str, Any]:
         "page_load_ms": None,
         "error": None,
     }
+    url_error = _validate_url(url)
+    if url_error:
+        result["error"] = url_error
+        return result
     try:
         start = time.time()
         resp = requests.get(
