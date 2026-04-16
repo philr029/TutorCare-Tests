@@ -1,0 +1,24 @@
+api_keys:
+  abuseipdb: ""
+  virustotal: ""
+  numverify: ""
+  twilio_sid: ""
+  twilio_token: ""
+
+settings:
+  timeout: 10
+  log_level: "INFO"
+  log_file: "security_toolkit.log"
+  redact_keys: true
+
+dnsbl_sources:
+  - name: "Spamhaus ZEN"
+    host: "zen.spamhaus.org"
+  - name: "SURBL"
+    host: "multi.surbl.org"
+  - name: "Barracuda"
+    host: "b.barracudacentral.org"
+  - name: "SpamCop"
+    host: "bl.spamcop.net"
+  - name: "SORBS"
+    host: "dnsbl.sorbs.net"
