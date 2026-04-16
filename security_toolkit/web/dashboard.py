@@ -1,7 +1,6 @@
 """Lightweight Flask web dashboard."""
 from __future__ import annotations
 
-import json
 from typing import Optional
 
 from flask import Flask, jsonify, render_template, request

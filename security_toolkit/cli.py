@@ -1,6 +1,5 @@
 """CLI entry point for the security toolkit."""
 import json
-import sys
 from typing import Optional
 
 import click
