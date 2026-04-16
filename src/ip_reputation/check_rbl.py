@@ -27,6 +27,18 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Common DNSBL zones used by default when no specific zone is requested.
+COMMON_DNSBL_ZONES: List[str] = [
+    "zen.spamhaus.org",
+    "b.barracudacentral.org",
+    "bl.spamcop.net",
+    "multi.surbl.org",
+    "dnsbl.sorbs.net",
+    "psbl.surriel.com",
+    "dnsbl-1.uceprotect.net",
+    "ix.dnsbl.manitu.net",
+]
+
 
 def _reverse_ip(ip: str) -> str:
     """Reverse the octets of an IPv4 address for DNSBL lookup.

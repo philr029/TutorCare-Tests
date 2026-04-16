@@ -260,3 +260,90 @@ def validate_number(
             result["line_type"] = tw["line_type"]
 
     return result
+
+
+def validate_format(
+    number: str,
+    region: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Validate a phone number and return a simplified JSON summary.
+
+    Uses Google's libphonenumber offline; no network calls are made.
+
+    Args:
+        number: Phone number string, e.g. ``"+14155552671"`` or
+                ``"02071234567"``.
+        region: Default region hint (e.g. ``"US"``, ``"GB"``).  Required for
+                numbers without a leading ``+`` country code.
+
+    Returns:
+        Dictionary with keys:
+
+        - ``valid`` (*bool*) – ``True`` if the number is valid and dialable.
+        - ``country`` (*str | None*) – human-readable country name.
+        - ``carrier`` (*str | None*) – carrier name if known.
+        - ``type`` (*str*) – line type (``"mobile"``, ``"landline"``,
+          ``"voip"``, etc.).
+
+    Example output::
+
+        {
+          "valid": true,
+          "country": "United States",
+          "carrier": null,
+          "type": "fixed_line_or_mobile"
+        }
+    """
+    result = validate_number(number, region, config=None)
+    return {
+        "valid": result["valid"],
+        "country": result["country"],
+        "carrier": result["carrier"],
+        "type": result["line_type"],
+    }
+
+
+def get_carrier_info(
+    number: str,
+    region: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return carrier and line-type information for a phone number.
+
+    Uses Google's libphonenumber offline; no network calls are made.
+
+    Args:
+        number: Phone number string.
+        region: Default region hint.
+
+    Returns:
+        Dictionary with keys:
+
+        - ``valid`` (*bool*) – ``True`` if the number is valid.
+        - ``country`` (*str | None*) – human-readable country name.
+        - ``carrier`` (*str | None*) – carrier name if determinable offline.
+        - ``type`` (*str | None*) – line type label (``"mobile"``,
+          ``"landline"``, ``"voip"``, etc.).
+        - ``e164`` (*str | None*) – E.164-formatted number, or ``None`` if
+          the number could not be parsed.
+
+    Example output::
+
+        {
+          "valid": true,
+          "country": "United States",
+          "carrier": null,
+          "type": "fixed_line_or_mobile",
+          "e164": "+14155552671"
+        }
+    """
+    result = validate_number(number, region, config=None)
+    e164: Optional[str] = None
+    if result.get("format") and result["format"].get("e164"):
+        e164 = result["format"]["e164"]
+    return {
+        "valid": result["valid"],
+        "country": result["country"],
+        "carrier": result["carrier"],
+        "type": result["line_type"],
+        "e164": e164,
+    }
