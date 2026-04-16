@@ -66,7 +66,7 @@ class TestCheckDomainDnsbl:
 
         def side_effect(query, rtype):
             call_count["n"] += 1
-            if rtype == "A" and "example.com" in query:
+            if rtype == "A" and query == "example.com":
                 return [mock_a]
             raise dns.resolver.NXDOMAIN()
 
