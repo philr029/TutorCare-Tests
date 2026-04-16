@@ -114,7 +114,7 @@ def check_reputation(target: str, config: Optional[dict] = None) -> Dict[str, An
         config: Optional config dict (loaded from config.yaml if not provided).
 
     Returns:
-        Structured JSON-serialisable dict with reputation results.
+        Structured JSON-serializable dict with reputation results.
     """
     if config is None:
         config = load_config()

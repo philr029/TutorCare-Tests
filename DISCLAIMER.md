@@ -2,7 +2,7 @@
 
 ## Intended Use
 This Security Diagnostic Toolkit is designed exclusively for:
-- Authorised security research and analysis
+- Authorized security research and analysis
 - System and network administration by qualified professionals
 - Diagnosing issues with systems you own or have explicit written permission to test
 - Educational purposes in controlled environments

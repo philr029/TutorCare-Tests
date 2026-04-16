@@ -2,7 +2,7 @@
 
 A modular, non-intrusive security diagnostic toolkit for IP reputation, phone number validation, and website health checks. Built with Python, CLI-first design, and an optional web dashboard.
 
-> ⚠️ **For authorised use only.** See [DISCLAIMER.md](DISCLAIMER.md) for full legal and ethical usage terms.
+> ⚠️ **For authorized use only.** See [DISCLAIMER.md](DISCLAIMER.md) for full legal and ethical usage terms.
 
 ---
 

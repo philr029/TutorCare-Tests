@@ -216,7 +216,7 @@ def check_website(url: str, config: Optional[dict] = None) -> Dict[str, Any]:
         config: Optional config dict.
 
     Returns:
-        Structured JSON-serialisable dict with health results.
+        Structured JSON-serializable dict with health results.
     """
     if config is None:
         config = load_config()
