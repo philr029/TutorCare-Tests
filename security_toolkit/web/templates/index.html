@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Diagnostic Toolkit</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    input, button { padding: 8px 12px; margin: 4px; border-radius: 4px; border: 1px solid #ccc; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    pre { background: #282c34; color: #abb2bf; padding: 16px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; }
+    .disclaimer { background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 12px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Security Diagnostic Toolkit</h1>
+  <div class="disclaimer">
+    ⚠️ <strong>Legal &amp; Ethical Use Only.</strong> This toolkit is intended for authorized security research,
+    system administration, and network diagnostics. Do not use against systems you do not own or have explicit
+    permission to test. No intrusive probing is performed.
+  </div>
+
+  <div class="card">
+    <h2>IP / Domain Reputation</h2>
+    <input id="ip-input" type="text" placeholder="e.g. 8.8.8.8 or example.com" size="40">
+    <button onclick="checkIP()">Check</button>
+    <pre id="ip-result">Results will appear here...</pre>
+  </div>
+
+  <div class="card">
+    <h2>Phone Number Validation</h2>
+    <input id="phone-input" type="text" placeholder="e.g. +14155552671" size="30">
+    <input id="region-input" type="text" placeholder="Region (e.g. US)" size="10">
+    <button onclick="checkPhone()">Validate</button>
+    <pre id="phone-result">Results will appear here...</pre>
+  </div>
+
+  <div class="card">
+    <h2>Website Health &amp; Diagnostics</h2>
+    <input id="url-input" type="text" placeholder="e.g. https://example.com" size="40">
+    <button onclick="checkWebsite()">Diagnose</button>
+    <pre id="website-result">Results will appear here...</pre>
+  </div>
+
+  <script>
+    async function fetchJSON(url) {
+      const resp = await fetch(url);
+      return resp.json();
+    }
+
+    async function checkIP() {
+      const target = document.getElementById('ip-input').value.trim();
+      if (!target) return;
+      document.getElementById('ip-result').textContent = 'Loading...';
+      const data = await fetchJSON('/api/ip?target=' + encodeURIComponent(target));
+      document.getElementById('ip-result').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function checkPhone() {
+      const number = document.getElementById('phone-input').value.trim();
+      const region = document.getElementById('region-input').value.trim();
+      if (!number) return;
+      document.getElementById('phone-result').textContent = 'Loading...';
+      let url = '/api/phone?number=' + encodeURIComponent(number);
+      if (region) url += '&region=' + encodeURIComponent(region);
+      const data = await fetchJSON(url);
+      document.getElementById('phone-result').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function checkWebsite() {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) return;
+      document.getElementById('website-result').textContent = 'Loading...';
+      const data = await fetchJSON('/api/website?url=' + encodeURIComponent(url));
+      document.getElementById('website-result').textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>

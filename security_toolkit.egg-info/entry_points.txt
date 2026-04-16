@@ -1,0 +1,2 @@
+[console_scripts]
+security-toolkit = security_toolkit.cli:cli
