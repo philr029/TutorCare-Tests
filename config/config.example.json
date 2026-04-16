@@ -1,0 +1,25 @@
+{
+  "_comment": "Copy this file to config.json and fill in your API keys. All keys are optional – the toolkit works without them using DNSBL lookups and libphonenumber.",
+
+  "api_keys": {
+    "abuseipdb":   "YOUR_ABUSEIPDB_KEY",
+    "virustotal":  "YOUR_VIRUSTOTAL_KEY",
+    "numverify":   "YOUR_NUMVERIFY_KEY",
+    "twilio_sid":  "YOUR_TWILIO_ACCOUNT_SID",
+    "twilio_token": "YOUR_TWILIO_AUTH_TOKEN"
+  },
+
+  "settings": {
+    "timeout":   10,
+    "log_level": "INFO",
+    "log_file":  null
+  },
+
+  "dnsbl_sources": [
+    { "name": "Spamhaus ZEN",  "host": "zen.spamhaus.org" },
+    { "name": "SURBL",         "host": "multi.surbl.org" },
+    { "name": "Barracuda",     "host": "b.barracudacentral.org" },
+    { "name": "SpamCop",       "host": "bl.spamcop.net" },
+    { "name": "SORBS",         "host": "dnsbl.sorbs.net" }
+  ]
+}
