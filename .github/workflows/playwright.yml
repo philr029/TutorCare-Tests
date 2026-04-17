@@ -1,0 +1,70 @@
+name: Playwright Frontend Tests
+
+# Run browser tests against the live GitHub Pages deployment on push/PR
+# and on a daily schedule to catch any CDN or hosting regressions.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  schedule:
+    # Daily at 03:00 UTC – staggered from the Python tests job
+    - cron: "0 3 * * *"
+  workflow_dispatch:   # allow manual runs from the Actions UI
+
+jobs:
+  playwright:
+    name: Playwright – ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read  # checkout only
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Run the full spec on each browser project defined in playwright.config.ts
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js setup ─────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # ── Install Node dependencies ──────────────────────────────────────────
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ── Install Playwright browsers ────────────────────────────────────────
+      # Only install the browser needed for this matrix job to keep CI fast.
+      - name: Install Playwright browser (${{ matrix.browser }})
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      # ── Run tests ─────────────────────────────────────────────────────────
+      # TARGET_URL can be overridden via a repository variable if the deployment
+      # URL ever changes.
+      - name: Run Playwright tests (${{ matrix.browser }})
+        env:
+          BASE_URL: ${{ vars.PLAYWRIGHT_BASE_URL || 'https://philr029.github.io/TutorCare-Tests' }}
+          CI: "true"
+        run: npx playwright test --project=${{ matrix.browser }}
+
+      # ── Upload artefacts on failure ────────────────────────────────────────
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            playwright-results/
+          retention-days: 14

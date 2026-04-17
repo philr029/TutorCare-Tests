@@ -1,0 +1,15 @@
+{
+  "name": "tutorcare-tests-frontend",
+  "version": "1.0.0",
+  "description": "Playwright browser tests for the TutorCare Security Diagnostic Dashboard",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}
