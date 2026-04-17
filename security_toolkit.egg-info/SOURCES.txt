@@ -64,6 +64,7 @@ src/utils/config_loader.py
 src/utils/http_client.py
 src/utils/logger.py
 tests/__init__.py
+tests/test_api.py
 tests/test_ip_reputation.py
 tests/test_phone_validation.py
 tests/test_src_domain_reputation.py

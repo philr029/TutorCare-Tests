@@ -18,7 +18,7 @@ router = APIRouter(tags=["Domain Reputation"])
     summary="Check domain reputation",
     dependencies=[Depends(verify_api_key)],
 )
-@limiter.limit(lambda: get_settings().rate_limit_default)
+@limiter.limit(get_settings().rate_limit_default)
 async def check_domain_endpoint(
     request: Request,
     body: CheckDomainRequest,

@@ -118,6 +118,6 @@ class TestCheckAbuseIPDB:
             result = check_abuseipdb("8.8.8.8", "fake_key", timeout=5)
         expected_keys = {
             "ip", "source", "listed", "abuse_confidence_score",
-            "country", "isp", "total_reports", "error",
+            "country_code", "isp", "total_reports", "error",
         }
         assert set(result.keys()) == expected_keys

@@ -18,7 +18,7 @@ router = APIRouter(tags=["IP Reputation"])
     summary="Check IP reputation",
     dependencies=[Depends(verify_api_key)],
 )
-@limiter.limit(lambda: get_settings().rate_limit_default)
+@limiter.limit(get_settings().rate_limit_default)
 async def check_ip_endpoint(
     request: Request,  # required by SlowAPI
     body: CheckIPRequest,
