@@ -1,0 +1,240 @@
+import type { TestResult, TestSection, SummaryStats, RunHistoryEntry } from '../types';
+
+export const websiteTests: TestResult[] = [
+  {
+    id: 'w1',
+    name: 'Homepage loads successfully',
+    category: 'website',
+    status: 'pass',
+    lastRun: '2 minutes ago',
+    duration: 1240,
+    description: 'Checks that the TutorCare homepage returns HTTP 200 and renders within 3s.',
+    url: 'https://tutorcare.com',
+  },
+  {
+    id: 'w2',
+    name: 'Login page accessible',
+    category: 'website',
+    status: 'pass',
+    lastRun: '2 minutes ago',
+    duration: 890,
+    description: 'Verifies the login page loads and the sign-in form is visible.',
+    url: 'https://tutorcare.com/login',
+  },
+  {
+    id: 'w3',
+    name: 'Dashboard renders for authenticated users',
+    category: 'website',
+    status: 'fail',
+    lastRun: '2 minutes ago',
+    duration: 3200,
+    description: 'After login, the main dashboard should render within 2s.',
+    url: 'https://tutorcare.com/dashboard',
+    errorMessage: 'Timeout: Dashboard did not render within 2000ms. Got 3200ms.',
+  },
+  {
+    id: 'w4',
+    name: 'Tutor profile page loads',
+    category: 'website',
+    status: 'pass',
+    lastRun: '2 minutes ago',
+    duration: 1100,
+    description: 'Checks tutor profile pages load with correct meta tags.',
+    url: 'https://tutorcare.com/tutors/1',
+  },
+  {
+    id: 'w5',
+    name: '404 page shown for unknown routes',
+    category: 'website',
+    status: 'warning',
+    lastRun: '5 minutes ago',
+    duration: 440,
+    description: 'Unknown routes should return a custom 404 page.',
+    url: 'https://tutorcare.com/does-not-exist',
+    details: 'Returns generic error page instead of custom branded 404.',
+  },
+];
+
+export const formTests: TestResult[] = [
+  {
+    id: 'f1',
+    name: 'Registration form submits correctly',
+    category: 'form',
+    status: 'pass',
+    lastRun: '4 minutes ago',
+    duration: 2100,
+    description: 'End-to-end test of the tutor registration form submission.',
+  },
+  {
+    id: 'f2',
+    name: 'Login form validates email',
+    category: 'form',
+    status: 'pass',
+    lastRun: '4 minutes ago',
+    duration: 780,
+    description: 'Checks that invalid email formats are rejected client-side.',
+  },
+  {
+    id: 'f3',
+    name: 'Contact form sends message',
+    category: 'form',
+    status: 'fail',
+    lastRun: '4 minutes ago',
+    duration: 5000,
+    description: 'Submits the contact form and verifies the success toast appears.',
+    errorMessage: 'Element ".toast-success" not found after 5000ms.',
+  },
+  {
+    id: 'f4',
+    name: 'Search filters apply correctly',
+    category: 'form',
+    status: 'pass',
+    lastRun: '4 minutes ago',
+    duration: 1600,
+    description: 'Applies subject and price filters and checks results update.',
+  },
+  {
+    id: 'f5',
+    name: 'Password reset flow completes',
+    category: 'form',
+    status: 'pending',
+    lastRun: 'Not run yet',
+    duration: 0,
+    description: 'Full password reset flow from email link to new password set.',
+  },
+];
+
+export const securityChecks: TestResult[] = [
+  {
+    id: 's1',
+    name: 'HTTPS enforced on all pages',
+    category: 'security',
+    status: 'pass',
+    lastRun: '1 hour ago',
+    duration: 200,
+    description: 'All HTTP requests redirect to HTTPS.',
+  },
+  {
+    id: 's2',
+    name: 'Security headers present',
+    category: 'security',
+    status: 'warning',
+    lastRun: '1 hour ago',
+    duration: 150,
+    description: 'Checks for HSTS, CSP, X-Frame-Options, and X-Content-Type-Options headers.',
+    details: 'Content-Security-Policy header is missing. All other headers pass.',
+  },
+  {
+    id: 's3',
+    name: 'No exposed API keys in HTML',
+    category: 'security',
+    status: 'pass',
+    lastRun: '1 hour ago',
+    duration: 320,
+    description: 'Scans page source for common API key patterns.',
+  },
+  {
+    id: 's4',
+    name: 'Rate limiting on login endpoint',
+    category: 'security',
+    status: 'pass',
+    lastRun: '1 hour ago',
+    duration: 4400,
+    description: 'Sends 20 rapid login attempts and confirms 429 responses.',
+  },
+  {
+    id: 's5',
+    name: 'SQL injection in search inputs',
+    category: 'security',
+    status: 'pass',
+    lastRun: '1 hour ago',
+    duration: 890,
+    description: 'Injects common SQL patterns into all search inputs.',
+  },
+];
+
+export const apiChecks: TestResult[] = [
+  {
+    id: 'a1',
+    name: 'GET /api/tutors returns 200',
+    category: 'api',
+    status: 'pass',
+    lastRun: '30 seconds ago',
+    duration: 120,
+    description: 'Checks the tutors list endpoint responds correctly.',
+    url: '/api/tutors',
+  },
+  {
+    id: 'a2',
+    name: 'POST /api/auth/login returns JWT',
+    category: 'api',
+    status: 'pass',
+    lastRun: '30 seconds ago',
+    duration: 210,
+    description: 'Valid credentials return a signed JWT token.',
+    url: '/api/auth/login',
+  },
+  {
+    id: 'a3',
+    name: 'GET /api/bookings requires auth',
+    category: 'api',
+    status: 'pass',
+    lastRun: '30 seconds ago',
+    duration: 95,
+    description: 'Unauthenticated requests to bookings endpoint return 401.',
+    url: '/api/bookings',
+  },
+  {
+    id: 'a4',
+    name: 'POST /api/contact sends email',
+    category: 'api',
+    status: 'fail',
+    lastRun: '30 seconds ago',
+    duration: 8000,
+    description: 'Confirms the contact form API triggers an email send.',
+    url: '/api/contact',
+    errorMessage: 'Expected status 200, received 503. Email service may be down.',
+  },
+  {
+    id: 'a5',
+    name: 'GET /api/health returns uptime',
+    category: 'api',
+    status: 'pass',
+    lastRun: '30 seconds ago',
+    duration: 45,
+    description: 'Health check endpoint returns uptime and version.',
+    url: '/api/health',
+  },
+];
+
+export const testSections: TestSection[] = [
+  { id: 'website', title: 'Website Tests', category: 'website', icon: '🌐', tests: websiteTests },
+  { id: 'form', title: 'Form Tests', category: 'form', icon: '📋', tests: formTests },
+  { id: 'security', title: 'Security Checks', category: 'security', icon: '🔒', tests: securityChecks },
+  { id: 'api', title: 'API Checks', category: 'api', icon: '⚡', tests: apiChecks },
+];
+
+export const allTests: TestResult[] = [
+  ...websiteTests,
+  ...formTests,
+  ...securityChecks,
+  ...apiChecks,
+];
+
+export function computeSummary(): SummaryStats {
+  return {
+    total: allTests.length,
+    passed: allTests.filter(t => t.status === 'pass').length,
+    failed: allTests.filter(t => t.status === 'fail').length,
+    warnings: allTests.filter(t => t.status === 'warning').length,
+    lastRun: '30 seconds ago',
+  };
+}
+
+export const runHistory: RunHistoryEntry[] = [
+  { id: 'r1', runAt: 'Today at 16:30', duration: 28400, total: 20, passed: 16, failed: 3, triggeredBy: 'Manual' },
+  { id: 'r2', runAt: 'Today at 14:15', duration: 31200, total: 20, passed: 17, failed: 2, triggeredBy: 'Scheduled' },
+  { id: 'r3', runAt: 'Today at 10:00', duration: 27900, total: 20, passed: 18, failed: 1, triggeredBy: 'Scheduled' },
+  { id: 'r4', runAt: 'Yesterday at 22:00', duration: 29600, total: 20, passed: 15, failed: 4, triggeredBy: 'CI/CD' },
+  { id: 'r5', runAt: 'Yesterday at 16:00', duration: 30100, total: 20, passed: 18, failed: 1, triggeredBy: 'Scheduled' },
+];
