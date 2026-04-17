@@ -3,9 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright configuration for the TutorCare Security Diagnostic Dashboard.
  *
- * Targets the static site deployed to GitHub Pages.
- * Override BASE_URL to test a local server:
- *   BASE_URL=http://localhost:5500 npx playwright test
+ * By default, Playwright starts a local static-file server on port 5500 and
+ * runs tests against it.  In CI the workflow sets BASE_URL to the GitHub Pages
+ * URL so tests are run against the live deployment instead:
+ *   BASE_URL=https://philr029.github.io/TutorCare-Tests npx playwright test
  */
 export default defineConfig({
   // Directory containing all Playwright test files
@@ -29,8 +30,8 @@ export default defineConfig({
     : [["list"], ["html", { open: "on-failure" }]],
 
   use: {
-    // Default base URL; override with BASE_URL env var
-    baseURL: process.env.BASE_URL || "https://philr029.github.io/TutorCare-Tests",
+    // Default base URL; override with BASE_URL env var for remote deployments
+    baseURL: process.env.BASE_URL || "http://localhost:5500",
 
     // Capture a screenshot on every test failure for debugging
     screenshot: "only-on-failure",
@@ -45,6 +46,20 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
+
+  // Start a local static-file server automatically when BASE_URL is not set.
+  // In CI the workflow sets BASE_URL to the GitHub Pages URL so the server
+  // is skipped there; for local runs it starts automatically.
+  ...(process.env.BASE_URL
+    ? {}
+    : {
+        webServer: {
+          command: "npx serve -l 5500 .",
+          url: "http://localhost:5500",
+          reuseExistingServer: !process.env.CI,
+          timeout: 10_000,
+        },
+      }),
 
   projects: [
     {

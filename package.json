@@ -4,12 +4,17 @@
   "description": "Playwright browser tests for the TutorCare Security Diagnostic Dashboard",
   "private": true,
   "scripts": {
+    "dev": "serve -l 5500 .",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "serve": "^14.2.6"
   }
 }
