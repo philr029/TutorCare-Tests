@@ -1,0 +1,50 @@
+name: Deploy Dashboard to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow only one concurrent deployment; cancel in-flight runs.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages:    write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url:  ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The dashboard uses Tailwind CSS via CDN (no build step required).
+      # Future: swap this step for a proper PostCSS/Tailwind CLI build if
+      # moving away from the CDN.
+
+      - name: Prepare static site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r assets/  _site/assets/
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

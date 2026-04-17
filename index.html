@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Security Diagnostic Toolkit – interactive dashboard for IP reputation, domain checks, phone validation, and site-health diagnostics.">
+  <title>Security Diagnostic Toolkit</title>
+
+  <!-- Tailwind CSS (CDN play mode – suitable for static deployment) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- JetBrains Mono (monospace font for code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Alpine.js (deferred so it initialises after DOM + our scripts) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="h-full bg-slate-100 antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     APP ROOT  –  Alpine.js root component
+     The @tool-change event bubbles up from child components so they can
+     navigate to a different panel (e.g. "Go to Settings").
+════════════════════════════════════════════════════════════════════════ -->
+<div x-data="app()"
+     x-cloak
+     @tool-change="setTool($event.detail)"
+     class="flex h-full">
+
+  <!-- ── Mobile sidebar overlay ─────────────────────────────────────────── -->
+  <div x-show="sidebarOpen"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @click="sidebarOpen = false"
+       class="fixed inset-0 bg-black/50 z-20 lg:hidden"></div>
+
+  <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+  <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+         class="fixed inset-y-0 left-0 z-30 w-64 flex flex-col bg-slate-900
+                transition-transform duration-200 ease-in-out
+                lg:relative lg:flex lg:shrink-0">
+
+    <!-- Branding -->
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-700/60">
+      <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-600 text-xl shrink-0">🔍</div>
+      <div class="min-w-0">
+        <p class="text-white text-sm font-bold leading-tight">Security Toolkit</p>
+        <p class="text-slate-400 text-xs">Diagnostic Dashboard</p>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto">
+
+      <p class="px-3 pt-3 pb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tools</p>
+      <template x-for="item in toolItems()" :key="item.id">
+        <button @click="setTool(item.id)"
+                :class="tool === item.id ? 'nav-active' : 'nav-inactive'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       transition-colors duration-100 cursor-pointer">
+          <span class="text-base shrink-0" x-text="item.icon"></span>
+          <span x-text="item.label"></span>
+        </button>
+      </template>
+
+      <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Other</p>
+      <template x-for="item in otherItems()" :key="item.id">
+        <button @click="setTool(item.id)"
+                :class="tool === item.id ? 'nav-active' : 'nav-inactive'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       transition-colors duration-100 cursor-pointer">
+          <span class="text-base shrink-0" x-text="item.icon"></span>
+          <span x-text="item.label"></span>
+        </button>
+      </template>
+    </nav>
+
+    <!-- API status strip -->
+    <div class="p-4 border-t border-slate-700/60">
+      <div class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-slate-800">
+        <div :class="apiConfigured ? 'bg-green-400' : 'bg-red-400 animate-pulse'"
+             class="w-2 h-2 rounded-full shrink-0"></div>
+        <div class="min-w-0">
+          <p class="text-xs text-slate-500 leading-none mb-0.5">API endpoint</p>
+          <p class="text-xs text-slate-300 font-medium truncate"
+             x-text="apiConfigured ? apiBaseUrl : 'Not configured'"></p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main area ──────────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    <!-- Mobile top bar -->
+    <header class="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0">
+      <button @click="sidebarOpen = true"
+              class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <span class="font-semibold text-gray-900" x-text="currentLabel()"></span>
+    </header>
+
+    <!-- Scrollable content -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           IP CHECK
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'ip'" x-data="ipCheck()">
+
+        <!-- Header -->
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>🛡️</span> IP Reputation Check
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">Check an IPv4 address against DNSBL blocklists and AbuseIPDB.</p>
+        </div>
+
+        <!-- Form card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-5">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                IP Address <span class="text-red-500">*</span>
+              </label>
+              <input x-model="ip" type="text" placeholder="e.g. 8.8.8.8"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                DNSBL Zones
+                <span class="text-gray-400 font-normal text-xs ml-1">(optional, comma-separated)</span>
+              </label>
+              <input x-model="dnsblZones" type="text"
+                     placeholder="zen.spamhaus.org, bl.spamcop.net"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3 flex-wrap">
+            <button @click="submit()"
+                    :disabled="loading || !ip.trim()"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white
+                           text-sm font-semibold rounded-lg hover:bg-indigo-700
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <svg x-show="loading" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962
+                         7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              <span x-text="loading ? 'Checking…' : 'Check IP'"></span>
+            </button>
+            <button x-show="result || error" @click="clear()"
+                    class="text-sm text-gray-500 hover:text-gray-800 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <!-- API warning -->
+        <div x-show="!apiConfigured"
+             class="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <span class="shrink-0 text-lg">⚠️</span>
+          <span><strong>API not configured.</strong>
+            <button @click="$dispatch('tool-change', 'settings')" class="underline ml-1 cursor-pointer">Open Settings</button>
+            to set your backend URL and API key.
+          </span>
+        </div>
+
+        <!-- Error -->
+        <div x-show="error" x-transition
+             class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <span class="shrink-0 text-lg">❌</span>
+          <span><strong>Error: </strong><span x-text="error"></span></span>
+        </div>
+
+        <!-- Results -->
+        <div x-show="result" x-transition class="space-y-5">
+
+          <!-- Summary -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">IP Address</p>
+                <p x-text="result?.ip" class="text-2xl font-mono font-bold text-gray-900"></p>
+                <p class="text-sm text-gray-500 mt-1">
+                  <span x-text="listedCount"></span> of
+                  <span x-text="result?.dnsbl_results?.length ?? 0"></span>
+                  DNSBL zone(s) flagged
+                </p>
+              </div>
+              <span :class="statusBadge?.cls" x-text="statusBadge?.text"
+                    class="badge text-sm px-4 py-1.5 self-start sm:self-center"></span>
+            </div>
+          </div>
+
+          <!-- DNSBL table -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h3 class="font-semibold text-gray-900 text-sm">DNSBL Lookup Results</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Zone</th>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="row in (result?.dnsbl_results ?? [])" :key="row.dnsbl">
+                    <tr :class="rowCls(row)">
+                      <td class="px-6 py-3 font-mono text-gray-700 text-xs" x-text="row.dnsbl"></td>
+                      <td class="px-6 py-3">
+                        <span :class="row.listed ? 'badge-red' : 'badge-green'"
+                              x-text="row.listed ? 'Listed' : 'Clean'"
+                              class="badge"></span>
+                      </td>
+                      <td class="px-6 py-3 text-gray-500" x-text="row.details"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Chart + AbuseIPDB -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-4">DNSBL Hit Overview</h3>
+              <div class="h-44">
+                <canvas id="ip-dnsbl-chart"></canvas>
+              </div>
+            </div>
+
+            <!-- AbuseIPDB (data present) -->
+            <div x-show="result?.abuseipdb"
+                 class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-4">AbuseIPDB</h3>
+              <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Abuse Score</span>
+                  <span :class="(result?.abuseipdb?.abuse_confidence_score ?? 0) > 50 ? 'badge-red' : 'badge-green'"
+                        x-text="(result?.abuseipdb?.abuse_confidence_score ?? 0) + '%'"
+                        class="badge"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Total Reports</span>
+                  <span class="font-mono font-semibold text-gray-900"
+                        x-text="result?.abuseipdb?.total_reports ?? 0"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Country</span>
+                  <span class="font-mono text-gray-700"
+                        x-text="result?.abuseipdb?.country_code || '—'"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">ISP</span>
+                  <span class="text-gray-700 text-right max-w-[10rem] truncate text-xs"
+                        x-text="result?.abuseipdb?.isp || '—'"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AbuseIPDB (no data) -->
+            <div x-show="!result?.abuseipdb"
+                 class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col justify-center">
+              <h3 class="font-semibold text-gray-900 text-sm mb-1">AbuseIPDB</h3>
+              <p class="text-xs text-gray-400">No data — set <code class="font-mono bg-gray-100 px-1 rounded">ABUSEIPDB_KEY</code> on the API server to enable enrichment.</p>
+            </div>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+            <button @click="showRaw = !showRaw"
+                    class="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold
+                           text-gray-700 hover:bg-gray-50 rounded-2xl transition-colors">
+              <span>Raw JSON Response</span>
+              <svg :class="showRaw ? 'rotate-180' : ''"
+                   class="w-4 h-4 transition-transform text-gray-400"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="showRaw" x-transition class="border-t border-gray-200">
+              <pre class="code-block rounded-t-none rounded-b-2xl text-xs"
+                   x-html="jsonHtml(result)"></pre>
+            </div>
+          </div>
+
+        </div><!-- /results -->
+      </div><!-- /IP Check -->
+
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           DOMAIN CHECK
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'domain'" x-data="domainCheck()">
+
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>🌐</span> Domain Reputation Check
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">Check a domain against IP-based DNSBLs and the Spamhaus DBL.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-5">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Domain <span class="text-red-500">*</span>
+              </label>
+              <input x-model="domain" type="text" placeholder="e.g. example.com"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                DNSBL Hosts
+                <span class="text-gray-400 font-normal text-xs ml-1">(optional, comma-separated)</span>
+              </label>
+              <input x-model="dnsblHosts" type="text"
+                     placeholder="zen.spamhaus.org, dbl.spamhaus.org"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3 flex-wrap">
+            <button @click="submit()"
+                    :disabled="loading || !domain.trim()"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white
+                           text-sm font-semibold rounded-lg hover:bg-indigo-700
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <svg x-show="loading" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962
+                         7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              <span x-text="loading ? 'Checking…' : 'Check Domain'"></span>
+            </button>
+            <button x-show="result || error" @click="clear()"
+                    class="text-sm text-gray-500 hover:text-gray-800 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <div x-show="!apiConfigured"
+             class="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <span class="shrink-0 text-lg">⚠️</span>
+          <span><strong>API not configured.</strong>
+            <button @click="$dispatch('tool-change', 'settings')" class="underline ml-1 cursor-pointer">Open Settings</button>
+          </span>
+        </div>
+
+        <div x-show="error" x-transition
+             class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <span class="shrink-0 text-lg">❌</span>
+          <span><strong>Error: </strong><span x-text="error"></span></span>
+        </div>
+
+        <div x-show="result" x-transition class="space-y-5">
+
+          <!-- Summary -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Domain</p>
+                <p x-text="result?.domain" class="text-2xl font-mono font-bold text-gray-900"></p>
+              </div>
+              <span :class="statusBadge?.cls" x-text="statusBadge?.text"
+                    class="badge text-sm px-4 py-1.5 self-start sm:self-center"></span>
+            </div>
+          </div>
+
+          <!-- Resolved IPs + Sources -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-3">Resolved IP(s)</h3>
+              <div x-show="resolvedIPs.length" class="space-y-1.5">
+                <template x-for="ip in resolvedIPs" :key="ip">
+                  <p class="font-mono text-sm bg-gray-50 rounded-lg px-3 py-2 text-gray-800" x-text="ip"></p>
+                </template>
+              </div>
+              <p x-show="!resolvedIPs.length" class="text-gray-400 text-sm">No IPs resolved.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-3">Blocklist Sources</h3>
+              <div x-show="sources.length" class="space-y-1.5">
+                <template x-for="src in sources" :key="src">
+                  <p class="font-mono text-xs bg-red-50 text-red-700 rounded-lg px-3 py-2" x-text="src"></p>
+                </template>
+              </div>
+              <p x-show="!sources.length" class="text-sm text-gray-400">Not found in any blocklist.</p>
+            </div>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+            <button @click="showRaw = !showRaw"
+                    class="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold
+                           text-gray-700 hover:bg-gray-50 rounded-2xl transition-colors">
+              <span>Raw JSON Response</span>
+              <svg :class="showRaw ? 'rotate-180' : ''"
+                   class="w-4 h-4 transition-transform text-gray-400"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="showRaw" x-transition class="border-t border-gray-200">
+              <pre class="code-block rounded-t-none rounded-b-2xl"
+                   x-html="jsonHtml(result)"></pre>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /Domain Check -->
+
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           PHONE VALIDATION
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'phone'" x-data="phoneCheck()">
+
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>📱</span> Phone Number Validation
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">Parse and validate a phone number using Google's libphonenumber. No network calls unless Numverify/Twilio keys are set.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-5">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Phone Number <span class="text-red-500">*</span>
+              </label>
+              <input x-model="phone" type="tel" placeholder="e.g. +14155552671"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Region hint
+                <span class="text-gray-400 font-normal text-xs ml-1">(optional, e.g. US, GB)</span>
+              </label>
+              <input x-model="region" type="text" placeholder="US" maxlength="2"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm uppercase
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3 flex-wrap">
+            <button @click="submit()"
+                    :disabled="loading || !phone.trim()"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white
+                           text-sm font-semibold rounded-lg hover:bg-indigo-700
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <svg x-show="loading" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962
+                         7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              <span x-text="loading ? 'Validating…' : 'Validate'"></span>
+            </button>
+            <button x-show="result || error" @click="clear()"
+                    class="text-sm text-gray-500 hover:text-gray-800 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <div x-show="!apiConfigured"
+             class="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <span class="shrink-0 text-lg">⚠️</span>
+          <span><strong>API not configured.</strong>
+            <button @click="$dispatch('tool-change', 'settings')" class="underline ml-1 cursor-pointer">Open Settings</button>
+          </span>
+        </div>
+
+        <div x-show="error" x-transition
+             class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <span class="shrink-0 text-lg">❌</span>
+          <span><strong>Error: </strong><span x-text="error"></span></span>
+        </div>
+
+        <div x-show="result" x-transition class="space-y-5">
+
+          <!-- Summary -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Input</p>
+                <p x-text="result?.input" class="text-2xl font-mono font-bold text-gray-900"></p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <span :class="validBadge?.cls" x-text="validBadge?.text" class="badge"></span>
+                  <span :class="possibleBadge?.cls" x-text="possibleBadge?.text" class="badge"></span>
+                  <template x-if="lineTypeBadge">
+                    <span :class="lineTypeBadge.cls" x-text="lineTypeBadge.text" class="badge"></span>
+                  </template>
+                </div>
+              </div>
+              <div class="text-sm text-gray-600 space-y-1 sm:text-right">
+                <p><span class="text-gray-400">Country:</span> <strong x-text="result?.country || '—'"></strong></p>
+                <p><span class="text-gray-400">Region:</span>  <strong x-text="result?.region  || '—'"></strong></p>
+                <p><span class="text-gray-400">Carrier:</span> <strong x-text="result?.carrier || '—'"></strong></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formats + Timezones -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-3">Formatted Numbers</h3>
+              <div class="space-y-2">
+                <template x-for="fmt in formats" :key="fmt.label">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-500 uppercase tracking-wide" x-text="fmt.label"></span>
+                    <span class="font-mono text-sm text-gray-800 bg-gray-50 rounded px-2 py-0.5"
+                          x-text="fmt.value"></span>
+                  </div>
+                </template>
+                <p x-show="!formats.length" class="text-gray-400 text-sm">No format data.</p>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-3">Timezones</h3>
+              <div class="flex flex-wrap gap-2">
+                <template x-for="tz in timezones" :key="tz">
+                  <span class="badge badge-blue text-xs px-2.5 py-1" x-text="tz"></span>
+                </template>
+                <p x-show="!timezones.length" class="text-gray-400 text-sm">No timezone data.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error from API (validation error in result) -->
+          <div x-show="result?.error"
+               class="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+            <strong>Validation note:</strong> <span x-text="result?.error"></span>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+            <button @click="showRaw = !showRaw"
+                    class="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold
+                           text-gray-700 hover:bg-gray-50 rounded-2xl transition-colors">
+              <span>Raw JSON Response</span>
+              <svg :class="showRaw ? 'rotate-180' : ''"
+                   class="w-4 h-4 transition-transform text-gray-400"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="showRaw" x-transition class="border-t border-gray-200">
+              <pre class="code-block rounded-t-none rounded-b-2xl"
+                   x-html="jsonHtml(result)"></pre>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /Phone Validation -->
+
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           SITE HEALTH
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'site'" x-data="siteHealth()">
+
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>🌍</span> Site Health &amp; Diagnostics
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">Non-intrusive HTTP, SSL/TLS, and DNS diagnostics for any URL or hostname.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-5">
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                URL or Hostname <span class="text-red-500">*</span>
+              </label>
+              <input x-model="url" type="url" placeholder="https://example.com"
+                     @keyup.enter="submit()"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                Timeout (s)
+                <span class="text-gray-400 font-normal text-xs ml-1">(1–60)</span>
+              </label>
+              <input x-model="timeout" type="number" min="1" max="60" placeholder="10"
+                     class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition placeholder-gray-400">
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3 flex-wrap">
+            <button @click="submit()"
+                    :disabled="loading || !url.trim()"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white
+                           text-sm font-semibold rounded-lg hover:bg-indigo-700
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <svg x-show="loading" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962
+                         7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              <span x-text="loading ? 'Diagnosing…' : 'Diagnose'"></span>
+            </button>
+            <button x-show="result || error" @click="clear()"
+                    class="text-sm text-gray-500 hover:text-gray-800 transition-colors">Clear</button>
+          </div>
+        </div>
+
+        <div x-show="!apiConfigured"
+             class="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <span class="shrink-0 text-lg">⚠️</span>
+          <span><strong>API not configured.</strong>
+            <button @click="$dispatch('tool-change', 'settings')" class="underline ml-1 cursor-pointer">Open Settings</button>
+          </span>
+        </div>
+
+        <div x-show="error" x-transition
+             class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <span class="shrink-0 text-lg">❌</span>
+          <span><strong>Error: </strong><span x-text="error"></span></span>
+        </div>
+
+        <div x-show="result" x-transition class="space-y-5">
+
+          <!-- Hostname banner -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Hostname</p>
+            <p x-text="result?.hostname" class="text-2xl font-mono font-bold text-gray-900 mb-2"></p>
+            <p class="text-xs text-gray-400">Checked at: <span x-text="result?.checked_at"></span></p>
+          </div>
+
+          <!-- HTTP + SSL cards -->
+          <div class="grid md:grid-cols-2 gap-5">
+
+            <!-- HTTP card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-4 flex items-center gap-2">
+                <span>🌐</span> HTTP
+              </h3>
+              <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Status</span>
+                  <span :class="httpBadge?.cls" x-text="httpBadge?.text" class="badge"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Page load</span>
+                  <span class="font-mono font-medium text-gray-900" x-text="pageLoadMs"></span>
+                </div>
+                <div x-show="result?.http?.final_url" class="flex justify-between items-start gap-2">
+                  <span class="text-gray-500 shrink-0">Final URL</span>
+                  <span class="font-mono text-xs text-gray-700 text-right break-all"
+                        x-text="result?.http?.final_url"></span>
+                </div>
+                <div x-show="result?.http?.error"
+                     class="text-xs text-red-600 bg-red-50 rounded p-2"
+                     x-text="result?.http?.error"></div>
+              </div>
+              <!-- Redirect chain -->
+              <template x-if="redirectChain.length">
+                <div class="mt-4">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Redirect Chain</p>
+                  <div class="space-y-1">
+                    <template x-for="(hop, i) in redirectChain" :key="i">
+                      <div class="flex items-start gap-2 text-xs">
+                        <span class="badge badge-blue shrink-0" x-text="i + 1"></span>
+                        <span class="font-mono text-gray-600 break-all" x-text="hop"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- SSL card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 class="font-semibold text-gray-900 text-sm mb-4 flex items-center gap-2">
+                <span>🔒</span> SSL / TLS
+              </h3>
+              <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                  <span class="text-gray-500">Certificate</span>
+                  <span :class="sslBadge?.cls" x-text="sslBadge?.text" class="badge"></span>
+                </div>
+                <div x-show="result?.ssl?.days_until_expiry != null" class="flex justify-between items-center">
+                  <span class="text-gray-500">Expires in</span>
+                  <span class="font-mono font-medium text-gray-900"
+                        x-text="(result?.ssl?.days_until_expiry ?? '—') + ' days'"></span>
+                </div>
+                <div x-show="result?.ssl?.subject?.commonName" class="flex justify-between items-center">
+                  <span class="text-gray-500">Common Name</span>
+                  <span class="font-mono text-xs text-gray-700"
+                        x-text="result?.ssl?.subject?.commonName"></span>
+                </div>
+                <div x-show="result?.ssl?.issuer?.organizationName" class="flex justify-between items-center">
+                  <span class="text-gray-500">Issuer</span>
+                  <span class="text-xs text-gray-700 text-right max-w-[10rem]"
+                        x-text="result?.ssl?.issuer?.organizationName"></span>
+                </div>
+                <div x-show="result?.ssl?.error"
+                     class="text-xs text-red-600 bg-red-50 rounded p-2"
+                     x-text="result?.ssl?.error"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SSL Expiry chart -->
+          <div x-show="result?.ssl?.days_until_expiry != null"
+               class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 text-sm mb-4">SSL Certificate Expiry Timeline</h3>
+            <div class="h-24">
+              <canvas id="ssl-expiry-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- DNS records -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h3 class="font-semibold text-gray-900 text-sm">DNS Records</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Type</th>
+                    <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Value</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="rec in dnsEntries" :key="rec.type">
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-6 py-3">
+                        <span class="badge badge-blue" x-text="rec.type"></span>
+                      </td>
+                      <td class="px-6 py-3 font-mono text-xs text-gray-700 break-all" x-text="rec.display"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+            <button @click="showRaw = !showRaw"
+                    class="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold
+                           text-gray-700 hover:bg-gray-50 rounded-2xl transition-colors">
+              <span>Raw JSON Response</span>
+              <svg :class="showRaw ? 'rotate-180' : ''"
+                   class="w-4 h-4 transition-transform text-gray-400"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div x-show="showRaw" x-transition class="border-t border-gray-200">
+              <pre class="code-block rounded-t-none rounded-b-2xl"
+                   x-html="jsonHtml(result)"></pre>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /Site Health -->
+
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           SETTINGS
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'settings'" x-data="settingsPanel()">
+
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>⚙️</span> Settings
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">Configure the backend API connection. Settings are saved in your browser's local storage.</p>
+        </div>
+
+        <div class="max-w-2xl space-y-5">
+
+          <!-- Connection settings card -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 text-sm mb-5">API Connection</h3>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                  API Base URL <span class="text-red-500">*</span>
+                </label>
+                <input x-model="baseUrl" type="url"
+                       placeholder="https://your-api-host.example.com"
+                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+                              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                              transition placeholder-gray-400 font-mono">
+                <p class="text-xs text-gray-400 mt-1">The root URL of your FastAPI deployment, without a trailing slash.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">API Key</label>
+                <div class="relative">
+                  <input x-model="apiKey"
+                         :type="showKey ? 'text' : 'password'"
+                         placeholder="Leave empty if authentication is disabled"
+                         class="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm
+                                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                                transition placeholder-gray-400 font-mono">
+                  <button @click="showKey = !showKey" type="button"
+                          class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600">
+                    <svg x-show="!showKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7
+                               -1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="showKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7
+                               a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878
+                               9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3
+                               3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7
+                               a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                  </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Sent as <code class="font-mono bg-gray-100 px-1 rounded">X-API-Key</code> header. Leave blank if authentication is disabled on the server.</p>
+              </div>
+            </div>
+
+            <div class="mt-6 flex items-center gap-3 flex-wrap">
+              <button @click="save()"
+                      class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white
+                             text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                Save Settings
+              </button>
+              <button @click="testConnection()" :disabled="testing"
+                      class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700
+                             text-sm font-semibold rounded-lg hover:bg-gray-50
+                             disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <svg x-show="testing" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962
+                           7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                <span x-text="testing ? 'Testing…' : 'Test Connection'"></span>
+              </button>
+
+              <!-- Saved confirmation -->
+              <span x-show="saved" x-transition
+                    class="text-sm text-green-600 font-medium flex items-center gap-1">
+                ✅ Saved
+              </span>
+
+              <!-- Test result -->
+              <span x-show="testMsg"
+                    :class="testMsg?.ok ? 'text-green-600' : 'text-red-600'"
+                    class="text-sm font-medium" x-text="testMsg?.text"></span>
+            </div>
+          </div>
+
+          <!-- Optional API keys info -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 text-sm mb-3">Optional 3rd-Party API Keys</h3>
+            <p class="text-sm text-gray-500 mb-4">
+              The following keys can be set as environment variables on the API server to enable
+              additional enrichment features. They are <strong>not</strong> entered here in the dashboard.
+            </p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Variable</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Provider</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Free tier</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr><td class="px-4 py-2.5 font-mono text-xs">ABUSEIPDB_KEY</td><td class="px-4 py-2.5 text-gray-600">abuseipdb.com</td><td class="px-4 py-2.5 text-gray-500">1,000 req/day</td></tr>
+                  <tr><td class="px-4 py-2.5 font-mono text-xs">VIRUSTOTAL_KEY</td><td class="px-4 py-2.5 text-gray-600">virustotal.com</td><td class="px-4 py-2.5 text-gray-500">4 req/min</td></tr>
+                  <tr><td class="px-4 py-2.5 font-mono text-xs">NUMVERIFY_KEY</td><td class="px-4 py-2.5 text-gray-600">numverify.com</td><td class="px-4 py-2.5 text-gray-500">100 req/month</td></tr>
+                  <tr><td class="px-4 py-2.5 font-mono text-xs">TWILIO_SID / TWILIO_TOKEN</td><td class="px-4 py-2.5 text-gray-600">twilio.com</td><td class="px-4 py-2.5 text-gray-500">Trial credits</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /Settings -->
+
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           DOCUMENTATION
+      ══════════════════════════════════════════════════════════════════ -->
+      <div x-show="tool === 'docs'">
+
+        <div class="mb-7">
+          <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <span>📖</span> Documentation
+          </h2>
+          <p class="text-gray-500 mt-1 text-sm">How to use the dashboard, configure API keys, and understand results.</p>
+        </div>
+
+        <div class="max-w-3xl space-y-6">
+
+          <!-- How to use -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              🚀 How to Use the Dashboard
+            </h3>
+            <ol class="space-y-3 text-sm text-gray-600 list-decimal list-inside">
+              <li><strong>Configure the API endpoint</strong> — go to ⚙️ Settings, enter the base URL of your running FastAPI backend (e.g. <code class="font-mono bg-gray-100 px-1 rounded text-xs">https://api.example.com</code>) and optionally your API key, then click Save.</li>
+              <li><strong>Choose a tool</strong> from the sidebar on the left.</li>
+              <li><strong>Enter the target</strong> (IP address, domain, phone number, or URL) into the form.</li>
+              <li><strong>Click the action button</strong> or press <kbd class="font-mono bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs">Enter</kbd>.</li>
+              <li><strong>Review results</strong> — colour-coded badges, tables, and charts display the findings. Expand <em>Raw JSON Response</em> to see the full API payload.</li>
+            </ol>
+          </div>
+
+          <!-- How to configure API keys -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              🔑 How to Configure API Keys
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">
+              The dashboard itself does not require any external API keys. It communicates with the
+              FastAPI backend, which optionally calls AbuseIPDB, VirusTotal, Numverify, and Twilio
+              for enriched results.
+            </p>
+            <p class="text-sm text-gray-600 mb-4">
+              Set the following environment variables on the API server (or in its <code class="font-mono bg-gray-100 px-1 rounded text-xs">.env</code> file):
+            </p>
+            <pre class="code-block text-xs">ABUSEIPDB_KEY=your_abuseipdb_key
+VIRUSTOTAL_KEY=your_virustotal_key
+NUMVERIFY_KEY=your_numverify_key
+TWILIO_SID=your_twilio_sid
+TWILIO_TOKEN=your_twilio_token
+
+# API authentication (comma-separated keys, or leave empty to disable)
+API_KEYS=your-dashboard-key-here</pre>
+            <p class="text-sm text-gray-500 mt-3">
+              All keys are <strong>optional</strong>. Without them the toolkit still performs DNSBL lookups
+              and offline phone-number parsing.
+            </p>
+          </div>
+
+          <!-- Example outputs -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              📊 Example Outputs
+            </h3>
+
+            <p class="text-sm font-semibold text-gray-700 mb-2">POST /check-ip</p>
+            <pre class="code-block text-xs mb-5">{
+  "ip": "8.8.8.8",
+  "dnsbl_results": [
+    { "ip": "8.8.8.8", "dnsbl": "zen.spamhaus.org", "listed": false, "details": "Not listed" },
+    { "ip": "8.8.8.8", "dnsbl": "bl.spamcop.net",   "listed": false, "details": "Not listed" }
+  ],
+  "abuseipdb": null
+}</pre>
+
+            <p class="text-sm font-semibold text-gray-700 mb-2">POST /check-domain</p>
+            <pre class="code-block text-xs mb-5">{
+  "domain": "example.com",
+  "resolved_ips": ["93.184.216.34"],
+  "listed": false,
+  "sources": []
+}</pre>
+
+            <p class="text-sm font-semibold text-gray-700 mb-2">POST /validate-phone</p>
+            <pre class="code-block text-xs mb-5">{
+  "input": "+14155552671",
+  "valid": true,
+  "possible": true,
+  "format": {
+    "e164": "+14155552671",
+    "international": "+1 415-555-2671",
+    "national": "(415) 555-2671"
+  },
+  "country": "United States",
+  "region": "US",
+  "carrier": null,
+  "line_type": "fixed_line_or_mobile",
+  "timezones": ["America/Los_Angeles"],
+  "sources": [],
+  "error": null
+}</pre>
+
+            <p class="text-sm font-semibold text-gray-700 mb-2">POST /site-health</p>
+            <pre class="code-block text-xs">{
+  "hostname": "example.com",
+  "http": { "status_code": 200, "page_load_ms": 342.5, "error": null },
+  "ssl":  { "valid": true, "days_until_expiry": 120, "error": null },
+  "dns":  { "A": ["93.184.216.34"], "SPF": [], "DMARC": "No DMARC record found" },
+  "checked_at": "2024-01-15T10:30:00+00:00"
+}</pre>
+          </div>
+
+          <!-- Badge legend -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              🏷️ Badge Colour Guide
+            </h3>
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+              <div class="flex items-center gap-3"><span class="badge badge-green">Clean / Valid</span> <span class="text-gray-600">No issues found</span></div>
+              <div class="flex items-center gap-3"><span class="badge badge-red">Listed / Invalid</span> <span class="text-gray-600">Blocklisted or invalid</span></div>
+              <div class="flex items-center gap-3"><span class="badge badge-yellow">Warning</span> <span class="text-gray-600">Certificate expiring soon (&lt;30 days)</span></div>
+              <div class="flex items-center gap-3"><span class="badge badge-blue">Info</span> <span class="text-gray-600">Informational (redirects, DNS types)</span></div>
+              <div class="flex items-center gap-3"><span class="badge badge-gray">Unknown</span> <span class="text-gray-600">Data not available</span></div>
+            </div>
+          </div>
+
+          <!-- Legal notice -->
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <h3 class="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+              ⚖️ Legal &amp; Ethical Usage Notice
+            </h3>
+            <div class="text-sm text-amber-800 space-y-2">
+              <p>This toolkit is intended for <strong>authorized security research, system administration, and network diagnostics only</strong>.</p>
+              <p><strong>Do not</strong> use this tool against systems you do not own or for which you do not have explicit written permission to test.</p>
+              <p>All checks performed are <strong>non-intrusive and passive</strong>:</p>
+              <ul class="list-disc list-inside space-y-1 ml-2">
+                <li>DNS queries use standard resolution</li>
+                <li>HTTP requests use a clearly identified User-Agent</li>
+                <li>SSL inspection is performed via standard TLS handshake</li>
+                <li>Phone validation is entirely offline (Google libphonenumber)</li>
+              </ul>
+              <p class="mt-2">See <a href="DISCLAIMER.md" target="_blank" rel="noopener"
+                                      class="underline font-medium">DISCLAIMER.md</a> for full legal terms.</p>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /Documentation -->
+
+    </main>
+  </div><!-- /main area -->
+
+</div><!-- /app root -->
+
+<!-- ── Scripts ───────────────────────────────────────────────────────────── -->
+<!-- Load order: api → components → app (Alpine evaluates x-data lazily) -->
+<script src="assets/js/api.js"></script>
+<script src="assets/js/components/ipCheck.js"></script>
+<script src="assets/js/components/domainCheck.js"></script>
+<script src="assets/js/components/phoneCheck.js"></script>
+<script src="assets/js/components/siteHealth.js"></script>
+<script src="assets/js/app.js"></script>
+
+</body>
+</html>
