@@ -1,5 +1,6 @@
 import { StatCard } from '../components/ui/StatCard';
 import { TestSectionCard } from '../components/dashboard/TestSectionCard';
+import { PhoneCheckCard } from '../components/dashboard/PhoneCheckCard';
 import { testSections, computeSummary, runHistory } from '../data/mockTests';
 import { Badge } from '../components/ui/Badge';
 import type { RunHistoryEntry } from '../types';
@@ -39,6 +40,14 @@ export function DashboardPage() {
           color="slate"
           subtitle="Automated run"
         />
+      </div>
+
+      {/* Live API tools */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-900 mb-3">Live API Tools</h2>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <PhoneCheckCard />
+        </div>
       </div>
 
       {/* Test sections */}
