@@ -4,7 +4,8 @@
   "description": "Playwright browser tests for the TutorCare Security Diagnostic Dashboard",
   "private": true,
   "scripts": {
-    "dev": "serve -l 5500 .",
+    "dev": "cd frontend && vite",
+    "build": "cd frontend && vite build",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
