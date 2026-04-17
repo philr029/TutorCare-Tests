@@ -30,3 +30,9 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node / Playwright
+node_modules/
+playwright-report/
+playwright-results/
+test-results/
