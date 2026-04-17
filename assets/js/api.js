@@ -21,6 +21,11 @@ class SecurityAPI {
   updateSettings(baseUrl, apiKey) {
     this.baseUrl = (baseUrl || '').replace(/\/$/, '');
     this.apiKey  = apiKey || '';
+    // The API key is persisted in localStorage so it survives page refreshes.
+    // localStorage stores data as plain text in the browser profile directory.
+    // Users should be aware of this and avoid storing high-value production keys
+    // in shared or public machines.  For higher security, use a backend proxy
+    // that injects the API key server-side so it never reaches the browser.
     localStorage.setItem('apiBaseUrl', this.baseUrl);
     localStorage.setItem('apiKey',     this.apiKey);
   }

@@ -6,7 +6,12 @@
   <meta name="description" content="Security Diagnostic Toolkit – interactive dashboard for IP reputation, domain checks, phone validation, and site-health diagnostics.">
   <title>Security Diagnostic Toolkit</title>
 
-  <!-- Tailwind CSS (CDN play mode – suitable for static deployment) -->
+  <!--
+    Tailwind CSS (CDN play mode – suitable for static deployment).
+    Per Tailwind CDN docs, tailwind.config MUST be defined in a synchronous
+    script block that appears BEFORE the CDN script is loaded so the CDN
+    picks up the custom theme on its first scan.  This ordering is intentional.
+  -->
   <script>
     tailwind.config = {
       theme: {
@@ -871,6 +876,7 @@
                   </button>
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Sent as <code class="font-mono bg-gray-100 px-1 rounded">X-API-Key</code> header. Leave blank if authentication is disabled on the server.</p>
+                <p class="text-xs text-amber-600 mt-1.5">⚠️ API keys are stored as plain text in your browser's local storage. Do not enter high-value production keys on shared or public devices.</p>
               </div>
             </div>
 

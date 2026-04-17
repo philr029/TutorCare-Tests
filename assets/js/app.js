@@ -7,6 +7,9 @@
  *   syntaxHighlight() – JSON HTML highlighter used by tool components
  */
 
+/** Milliseconds to show the "Saved ✅" confirmation before hiding it. */
+const SAVE_CONFIRMATION_DURATION_MS = 3000;
+
 /* ─── Root app component ────────────────────────────────────────────────── */
 function app() {
   return {
@@ -55,7 +58,7 @@ function settingsPanel() {
       api.updateSettings(this.baseUrl, this.apiKey);
       this.saved   = true;
       this.testMsg = null;
-      setTimeout(() => { this.saved = false; }, 3000);
+      setTimeout(() => { this.saved = false; }, SAVE_CONFIRMATION_DURATION_MS);
     },
 
     async testConnection() {
