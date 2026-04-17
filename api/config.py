@@ -92,10 +92,44 @@ class Settings(BaseSettings):
 
 _settings: Optional[Settings] = None
 
+# Safe fallback values used when environment validation fails.
+_SAFE_DEFAULTS: dict = {
+    "api_host": "0.0.0.0",
+    "api_port": 8000,
+    "api_workers": 1,
+    "debug": False,
+    "api_keys": "",
+    "auth_disabled": False,
+    "rate_limit_enabled": True,
+    "rate_limit_default": "60/minute",
+    "redis_url": None,
+    "cors_origins": "*",
+    "log_level": "INFO",
+    "log_json": True,
+    "abuseipdb_key": "",
+    "virustotal_key": "",
+    "numverify_key": "",
+    "twilio_sid": "",
+    "twilio_token": "",
+    "request_timeout": 10,
+}
+
 
 def get_settings() -> Settings:
-    """Return the cached application settings (singleton)."""
+    """Return the cached application settings (singleton).
+
+    Falls back to hard-coded safe defaults when environment variables contain
+    invalid values (e.g. a non-integer ``API_PORT``), so the server can always
+    start and serve ``/health``.
+    """
     global _settings
     if _settings is None:
-        _settings = Settings()
+        try:
+            _settings = Settings()
+        except Exception:  # noqa: BLE001 – catch pydantic ValidationError + any other parse error
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Failed to load Settings from environment; using safe defaults."
+            )
+            _settings = Settings.model_construct(**_SAFE_DEFAULTS)
     return _settings

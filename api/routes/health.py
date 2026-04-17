@@ -46,15 +46,19 @@ if _PROMETHEUS_AVAILABLE:
 )
 async def health_check() -> dict:
     """Return liveness status and which optional API keys are configured."""
-    settings = get_settings()
-    return {
-        "status": "ok",
-        "service": "security-toolkit-api",
-        "abuseipdb_loaded": bool(settings.abuseipdb_key),
-        "virustotal_loaded": bool(settings.virustotal_key),
-        "numverify_loaded": bool(settings.numverify_key),
-        "twilio_loaded": bool(settings.twilio_sid and settings.twilio_token),
-    }
+    try:
+        settings = get_settings()
+        return {
+            "status": "ok",
+            "service": "security-toolkit-api",
+            "abuseipdb_loaded": bool(settings.abuseipdb_key),
+            "virustotal_loaded": bool(settings.virustotal_key),
+            "numverify_loaded": bool(settings.numverify_key),
+            "twilio_loaded": bool(settings.twilio_sid and settings.twilio_token),
+        }
+    except Exception as exc:  # pragma: no cover – belt-and-suspenders for unexpected errors
+        logger.warning("health_check: unexpected error – %s", exc)
+        return {"status": "ok", "service": "security-toolkit-api"}
 
 
 @router.get(

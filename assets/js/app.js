@@ -18,7 +18,7 @@ function app() {
 
     navItems: [
       /* Tools */
-      { id: 'ip',       icon: '🛡️',  label: 'IP Check',          group: 'tools' },
+      { id: 'ip',       icon: '🛡️',  label: 'IP Reputation',     group: 'tools' },
       { id: 'domain',   icon: '🌐',  label: 'Domain Check',       group: 'tools' },
       { id: 'phone',    icon: '📱',  label: 'Phone Validation',   group: 'tools' },
       { id: 'site',     icon: '🌍',  label: 'Site Health',        group: 'tools' },

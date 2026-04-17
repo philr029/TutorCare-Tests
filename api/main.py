@@ -18,7 +18,16 @@ Or via the helper script:
 from __future__ import annotations
 
 import logging
+import os
 import sys
+
+# ---------------------------------------------------------------------------
+# Ensure the project root is in sys.path so ``from src.<module> import ...``
+# works regardless of how the process is invoked (uvicorn, Vercel, pytest …).
+# ---------------------------------------------------------------------------
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
