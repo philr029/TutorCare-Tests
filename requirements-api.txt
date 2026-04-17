@@ -1,0 +1,12 @@
+# API-specific Python dependencies.
+# Install alongside the base requirements.txt:
+#   pip install -r requirements.txt -r requirements-api.txt
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
+pydantic-settings>=2.6.0
+slowapi>=0.1.9
+redis>=5.2.1
+prometheus-client>=0.21.1
+python-dotenv>=1.0.1
+python-multipart>=0.0.22
+httpx>=0.28.0

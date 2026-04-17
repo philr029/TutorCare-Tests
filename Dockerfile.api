@@ -1,0 +1,50 @@
+# Security Diagnostic Toolkit – API Service Dockerfile
+#
+# Build:  docker build -f Dockerfile.api -t security-toolkit-api .
+# Run:    docker run --rm -p 8000:8000 --env-file .env security-toolkit-api
+
+FROM python:3.11-slim AS base
+
+WORKDIR /app
+
+# Install OS-level dependencies (needed by cryptography / dnspython)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Build stage: install Python deps ----
+FROM base AS builder
+
+COPY requirements.txt requirements-api.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt -r requirements-api.txt
+
+# ---- Final stage ----
+FROM base AS final
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application source
+COPY . .
+
+# Install the toolkit package itself in editable mode
+RUN pip install --no-cache-dir -e .
+
+# Non-root user for security
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+EXPOSE 8000
+
+ENV API_HOST=0.0.0.0 \
+    API_PORT=8000 \
+    API_WORKERS=2 \
+    LOG_JSON=true
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

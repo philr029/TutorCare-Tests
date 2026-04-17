@@ -1,0 +1,68 @@
+{
+  "_comment": "AWS ECS Fargate task definition for the Security Diagnostic Toolkit API.",
+  "_usage": [
+    "1. Push your Docker image to ECR:",
+    "   aws ecr get-login-password | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com",
+    "   docker build -f Dockerfile.api -t security-toolkit-api .",
+    "   docker tag security-toolkit-api:latest <account>.dkr.ecr.<region>.amazonaws.com/security-toolkit-api:latest",
+    "   docker push <account>.dkr.ecr.<region>.amazonaws.com/security-toolkit-api:latest",
+    "2. Register the task definition:",
+    "   aws ecs register-task-definition --cli-input-json file://deploy/aws-ecs-fargate.json",
+    "3. Create or update your ECS service:",
+    "   aws ecs create-service --cluster <cluster> --service-name security-toolkit-api \\",
+    "     --task-definition security-toolkit-api --desired-count 1 \\",
+    "     --launch-type FARGATE --network-configuration '...'"
+  ],
+  "family": "security-toolkit-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "security-toolkit-api",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/security-toolkit-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "API_HOST",            "value": "0.0.0.0" },
+        { "name": "API_PORT",            "value": "8000" },
+        { "name": "API_WORKERS",         "value": "2" },
+        { "name": "LOG_JSON",            "value": "true" },
+        { "name": "LOG_LEVEL",           "value": "INFO" },
+        { "name": "RATE_LIMIT_DEFAULT",  "value": "60/minute" }
+      ],
+      "secrets": [
+        { "name": "API_KEYS",       "valueFrom": "arn:aws:secretsmanager:<region>:<account-id>:secret:toolkit/api-keys" },
+        { "name": "ABUSEIPDB_KEY",  "valueFrom": "arn:aws:secretsmanager:<region>:<account-id>:secret:toolkit/abuseipdb-key" },
+        { "name": "REDIS_URL",      "valueFrom": "arn:aws:secretsmanager:<region>:<account-id>:secret:toolkit/redis-url" }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/security-toolkit-api",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
