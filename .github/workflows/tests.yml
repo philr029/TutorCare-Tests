@@ -42,10 +42,10 @@ jobs:
           cache: pip
 
       # ── Install dependencies ───────────────────────────────────────────────
-      - name: Install base and API dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-api.txt
+          pip install -r requirements.txt
           # Install the local package in editable mode so imports resolve
           pip install -e .
 
