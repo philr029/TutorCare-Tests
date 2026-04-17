@@ -2,6 +2,24 @@
 
 Loads ``config/config.example.json`` (or a user-supplied path) and merges it
 with safe defaults so the toolkit always has a usable configuration dict.
+Environment variables override file values so that secrets can be injected
+via the shell without modifying the config file.
+
+Environment variable overrides
+-------------------------------
+The following environment variables are recognised:
+
++--------------------+---------------------------------+
+| Variable           | Config path                     |
++====================+=================================+
+| ``ABUSEIPDB_KEY``  | ``api_keys.abuseipdb``          |
+| ``VIRUSTOTAL_KEY`` | ``api_keys.virustotal``         |
+| ``NUMVERIFY_KEY``  | ``api_keys.numverify``          |
+| ``TWILIO_SID``     | ``api_keys.twilio_sid``         |
+| ``TWILIO_TOKEN``   | ``api_keys.twilio_token``       |
+| ``TOOLKIT_TIMEOUT``| ``settings.timeout`` (int)      |
+| ``TOOLKIT_LOG``    | ``settings.log_level``          |
++--------------------+---------------------------------+
 
 Usage
 -----
@@ -14,14 +32,26 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CONFIG_PATH = (
     Path(__file__).parent.parent.parent / "config" / "config.example.json"
 )
+
+# Mapping from environment variable name to (config_section, config_key).
+_ENV_MAP: Dict[str, Tuple[str, str]] = {
+    "ABUSEIPDB_KEY":  ("api_keys", "abuseipdb"),
+    "VIRUSTOTAL_KEY": ("api_keys", "virustotal"),
+    "NUMVERIFY_KEY":  ("api_keys", "numverify"),
+    "TWILIO_SID":     ("api_keys", "twilio_sid"),
+    "TWILIO_TOKEN":   ("api_keys", "twilio_token"),
+    "TOOLKIT_TIMEOUT": ("settings", "timeout"),
+    "TOOLKIT_LOG":    ("settings", "log_level"),
+}
 
 
 def _default_config() -> Dict[str, Any]:
@@ -47,8 +77,39 @@ def _default_config() -> Dict[str, Any]:
     }
 
 
+def _apply_env_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply environment-variable overrides to *config* (in-place).
+
+    Values from the environment always take precedence over file values.
+    The ``TOOLKIT_TIMEOUT`` variable is coerced to ``int``; other values
+    are stored as-is.
+    """
+    for env_var, (section, key) in _ENV_MAP.items():
+        value: Optional[str] = os.environ.get(env_var)
+        if value is None:
+            continue
+        if section not in config:
+            config[section] = {}
+        if env_var == "TOOLKIT_TIMEOUT":
+            try:
+                config[section][key] = int(value)
+            except ValueError:
+                logger.warning(
+                    "Invalid value for %s – expected an integer, got %r",
+                    env_var,
+                    value,
+                )
+        else:
+            config[section][key] = value
+        logger.debug("Config override from env: %s -> %s.%s", env_var, section, key)
+    return config
+
+
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     """Load configuration from a JSON file, falling back to safe defaults.
+
+    Environment variables are applied after file loading so they always
+    take precedence.
 
     Args:
         config_path: Absolute or relative path to a JSON config file.
@@ -67,8 +128,6 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     Raises:
         json.JSONDecodeError: if the file contains invalid JSON.
     """
-    # TODO: Add schema validation (e.g. jsonschema) to catch typos early.
-    # TODO: Support environment-variable overrides (e.g. ABUSEIPDB_KEY).
     defaults = _default_config()
     path = Path(config_path) if config_path else _DEFAULT_CONFIG_PATH
 
@@ -78,7 +137,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             "Copy config/config.example.json and fill in your API keys.",
             path,
         )
-        return defaults
+        return _apply_env_overrides(defaults)
 
     try:
         with open(path, "r", encoding="utf-8") as fh:
@@ -89,7 +148,8 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
     # Deep-merge: user values override defaults, missing keys fall back.
     merged = _deep_merge(defaults, user_cfg)
-    return merged
+    # Environment variables have the highest precedence.
+    return _apply_env_overrides(merged)
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
