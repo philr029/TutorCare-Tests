@@ -25,11 +25,15 @@ export async function checkPhone(phone: string): Promise<NumverifyApiResponse> {
     return { success: false, error: 'Please enter a phone number.' };
   }
 
-  const url = `${API_BASE}/numverify?phone=${encodeURIComponent(trimmed)}`;
+  const url = `${API_BASE}/numverify`;
 
   let res: Response;
   try {
-    res = await fetch(url);
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: trimmed }),
+    });
   } catch {
     return { success: false, error: 'Network error – could not reach the API.' };
   }

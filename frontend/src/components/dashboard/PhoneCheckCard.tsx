@@ -12,11 +12,15 @@ type UIState =
   | { status: 'error'; message: string };
 
 function ResultRow({ label, value }: { label: string; value: string | boolean }) {
+  const display = String(value);
   return (
     <div className="flex items-start justify-between gap-2 py-1.5">
       <span className="text-xs text-gray-500 font-medium shrink-0">{label}</span>
-      <span className="text-xs text-gray-800 text-right font-medium truncate max-w-[60%]">
-        {String(value)}
+      <span
+        className="text-xs text-gray-800 text-right font-medium truncate max-w-[60%]"
+        title={display}
+      >
+        {display}
       </span>
     </div>
   );
