@@ -1,1 +1,0 @@
-"""Phone validation sub-package."""
