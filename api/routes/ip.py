@@ -1,14 +1,13 @@
 """IP reputation routes."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from api.middleware.auth import verify_api_key
 from api.middleware.rate_limit import limiter
 from api.schemas.ip_schemas import CheckIPRequest, CheckIPResponse
 from api.controllers.ip_controller import handle_check_ip
 from api.config import get_settings
-from fastapi import Request
 
 router = APIRouter(tags=["IP Reputation"])
 

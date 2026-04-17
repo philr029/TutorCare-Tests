@@ -203,11 +203,9 @@ class TestAuthentication:
 
     def test_auth_required_when_keys_configured(self, monkeypatch):
         """When API_KEYS is set, missing X-API-Key returns 401."""
-        from api.middleware import auth as auth_mod
         from api import config as cfg_mod
 
         # Fresh settings with a key configured and auth enabled
-        import importlib
         monkeypatch.setenv("API_KEYS", "test-secret-key")
         monkeypatch.setenv("AUTH_DISABLED", "false")
         cfg_mod._settings = None          # reset cache
