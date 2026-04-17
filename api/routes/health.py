@@ -40,11 +40,20 @@ if _PROMETHEUS_AVAILABLE:
 @router.get(
     "/health",
     summary="Health check",
-    response_description="Service liveness status.",
+    response_description="Service liveness status and optional API key availability.",
 )
 async def health_check() -> dict:
-    """Return a simple liveness response."""
-    return {"status": "ok", "service": "security-toolkit-api"}
+    """Return liveness status and which optional API keys are configured."""
+    from api.config import get_settings
+    settings = get_settings()
+    return {
+        "status": "ok",
+        "service": "security-toolkit-api",
+        "abuseipdb_loaded": bool(settings.abuseipdb_key),
+        "virustotal_loaded": bool(settings.virustotal_key),
+        "numverify_loaded": bool(settings.numverify_key),
+        "twilio_loaded": bool(settings.twilio_sid and settings.twilio_token),
+    }
 
 
 @router.get(

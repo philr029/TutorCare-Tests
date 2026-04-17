@@ -18,7 +18,7 @@ router = APIRouter(tags=["Phone Validation"])
     summary="Validate a phone number",
     dependencies=[Depends(verify_api_key)],
 )
-@limiter.limit(lambda: get_settings().rate_limit_default)
+@limiter.limit(get_settings().rate_limit_default)
 async def validate_phone_endpoint(
     request: Request,
     body: ValidatePhoneRequest,

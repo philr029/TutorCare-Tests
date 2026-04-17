@@ -18,7 +18,7 @@ router = APIRouter(tags=["Site Health"])
     summary="Run site-health diagnostics",
     dependencies=[Depends(verify_api_key)],
 )
-@limiter.limit(lambda: get_settings().rate_limit_default)
+@limiter.limit(get_settings().rate_limit_default)
 async def site_health_endpoint(
     request: Request,
     body: SiteHealthRequest,

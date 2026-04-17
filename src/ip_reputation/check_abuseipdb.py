@@ -62,7 +62,7 @@ def check_abuseipdb(
         - ``source`` (*str*) – always ``"AbuseIPDB"``.
         - ``listed`` (*bool | None*) – ``True`` if ``abuse_confidence_score > 0``.
         - ``abuse_confidence_score`` (*int | None*) – 0–100 confidence score.
-        - ``country`` (*str | None*) – two-letter country code.
+        - ``country_code`` (*str | None*) – two-letter country code.
         - ``isp`` (*str | None*) – ISP or organisation name.
         - ``total_reports`` (*int*) – number of abuse reports in the window.
         - ``error`` (*str | None*) – error message, or ``None`` on success.
@@ -74,7 +74,7 @@ def check_abuseipdb(
           "source": "AbuseIPDB",
           "listed": true,
           "abuse_confidence_score": 87,
-          "country": "CN",
+          "country_code": "CN",
           "isp": "Some Hosting Ltd",
           "total_reports": 42,
           "error": null
@@ -87,7 +87,7 @@ def check_abuseipdb(
           "source": "AbuseIPDB",
           "listed": false,
           "abuse_confidence_score": 0,
-          "country": "US",
+          "country_code": "US",
           "isp": "Google LLC",
           "total_reports": 0,
           "error": null
@@ -119,7 +119,7 @@ def check_abuseipdb(
             "source": "AbuseIPDB",
             "listed": score > 0,
             "abuse_confidence_score": score,
-            "country": data.get("countryCode"),
+            "country_code": data.get("countryCode"),
             "isp": data.get("isp"),
             "total_reports": data.get("totalReports", 0),
             "error": None,
@@ -147,7 +147,7 @@ def _error_result(ip: str, message: str) -> Dict[str, Any]:
         "source": "AbuseIPDB",
         "listed": None,
         "abuse_confidence_score": None,
-        "country": None,
+        "country_code": None,
         "isp": None,
         "total_reports": 0,
         "error": message,
