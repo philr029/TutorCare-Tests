@@ -6,6 +6,8 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
+from api.config import get_settings
+
 try:
     from prometheus_client import (
         CONTENT_TYPE_LATEST,
@@ -44,7 +46,6 @@ if _PROMETHEUS_AVAILABLE:
 )
 async def health_check() -> dict:
     """Return liveness status and which optional API keys are configured."""
-    from api.config import get_settings
     settings = get_settings()
     return {
         "status": "ok",
