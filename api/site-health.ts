@@ -37,12 +37,9 @@ export default function handler(req: any, res: any) {
       return res.status(422).json({ error: "url is not a valid URL" });
     }
 
-    return res.status(200).json({
+    return res.status(501).json({
+      error: "Site health diagnostics are not yet implemented in this runtime",
       hostname,
-      http: { status_code: null, error: null },
-      ssl: { valid: null, error: null },
-      dns: {},
-      checked_at: new Date().toISOString(),
     });
   } catch (err) {
     console.error("[site-health] Unhandled error:", err);

@@ -6,7 +6,7 @@
  * Returns JSON with validation result.
  */
 
-const E164_PATTERN = /^\+[1-9]\d{6,14}$/;
+const E164_PATTERN = /^\+[1-9]\d{1,14}$/;
 
 export default function handler(req: any, res: any) {
   try {
